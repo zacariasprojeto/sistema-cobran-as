@@ -12,6 +12,8 @@ export async function gerarHistoricoPDF(req: any, res: Response) {
     .eq("id", cliente_id)
     .single();
 
+  if (!cliente) return res.status(404).json({ error: "Cliente não encontrado" });
+
   const { data: emprestimos } = await supabase
     .from("emprestimos")
     .select("*")
@@ -20,13 +22,25 @@ export async function gerarHistoricoPDF(req: any, res: Response) {
   const { data: parcelas } = await supabase
     .from("parcelas")
     .select("*")
-    .eq("emprestimo_id", emprestimos[0].id);
+    .in(
+      "emprestimo_id",
+      emprestimos.map((e: any) => e.id)
+    );
 
-  const caminhoPDF = await gerarPDFHistorico(cliente, emprestimos, parcelas);
+  const caminhoPDF: any = await gerarPDFHistorico(
+    cliente,
+    emprestimos,
+    parcelas
+  );
 
-  await enviarMensagem(cliente.telefone, "Segue seu histórico completo", {
-    document: { url: caminhoPDF }
+  // ⭐ CORRIGIDO: Apenas dois argumentos!
+  await enviarMensagem(
+    cliente.telefone,
+    "Seu histórico foi gerado com sucesso! (PDF salvo no servidor)"
+  );
+
+  res.json({
+    message: "PDF gerado com sucesso!",
+    arquivo: caminhoPDF
   });
-
-  res.json({ message: "PDF gerado e enviado!", arquivo: caminhoPDF });
 }
