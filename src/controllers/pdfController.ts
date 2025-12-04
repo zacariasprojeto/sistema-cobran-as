@@ -1,46 +1,44 @@
 import { Request, Response } from "express";
+import PDFDocument from "pdfkit";
 import { supabase } from "../config/supabase";
-import { gerarPDFHistorico } from "../services/pdfService";
-import { enviarMensagem } from "../services/whatsappService";
 
-export async function gerarHistoricoPDF(req: any, res: Response) {
-  const cliente_id = req.params.cliente_id;
+export async function gerarPDF(req: Request, res: Response) {
+  const cliente_id = req.params.id;
 
-  const { data: cliente } = await supabase
-    .from("clientes")
-    .select("*")
-    .eq("id", cliente_id)
-    .single();
+  const cliente = await supabase.from("clientes").select("*").eq("id", cliente_id).single();
+  const emprestimos = await supabase.from("emprestimos").select("*").eq("cliente_id", cliente_id);
+  const parcelas = await supabase.from("parcelas").select("*");
 
-  if (!cliente) return res.status(404).json({ error: "Cliente não encontrado" });
+  if (cliente.error) return res.status(400).json(cliente.error);
 
-  const { data: emprestimos } = await supabase
-    .from("emprestimos")
-    .select("*")
-    .eq("cliente_id", cliente_id);
+  const doc = new PDFDocument();
+  res.setHeader("Content-Type", "application/pdf");
+  doc.pipe(res);
 
-  const { data: parcelas } = await supabase
-    .from("parcelas")
-    .select("*")
-    .in(
-      "emprestimo_id",
-      emprestimos.map((e: any) => e.id)
-    );
+  doc.fontSize(20).text("Histórico Financeiro", { align: "center" });
+  doc.moveDown();
+  doc.fontSize(14).text(`Cliente: ${cliente.data.nome}`);
+  doc.text(`Telefone: ${cliente.data.telefone}`);
 
-  const caminhoPDF: any = await gerarPDFHistorico(
-    cliente,
-    emprestimos,
-    parcelas
-  );
+  doc.moveDown();
+  doc.text("Empréstimos:");
 
-  // ⭐ CORRIGIDO: Apenas dois argumentos!
-  await enviarMensagem(
-    cliente.telefone,
-    "Seu histórico foi gerado com sucesso! (PDF salvo no servidor)"
-  );
+  emprestimos.data.forEach((e) => {
+    doc.moveDown();
+    doc.text(`Valor: R$ ${e.valor_total}`);
+    doc.text(`Parcelas: ${e.qtd_parcelas}`);
+    doc.text(`Juros/dia: ${e.juros_dia}%`);
+    doc.text(`Início: ${e.data_inicio}`);
 
-  res.json({
-    message: "PDF gerado com sucesso!",
-    arquivo: caminhoPDF
+    doc.moveDown();
+    doc.text("Parcelas:");
+
+    parcelas.data
+      .filter((p) => p.emprestimo_id === e.id)
+      .forEach((p) => {
+        doc.text(`Parcela #${p.numero} | Valor: R$ ${p.valor} | Status: ${p.status}`);
+      });
   });
+
+  doc.end();
 }

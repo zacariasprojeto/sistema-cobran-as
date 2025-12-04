@@ -1,35 +1,24 @@
 import { Request, Response } from "express";
 import { supabase } from "../config/supabase";
 
-export async function listarParcelas(req: any, res: Response) {
-  const emprestimo_id = req.params.emprestimo_id;
-
-  const { data, error } = await supabase
-    .from("parcelas")
-    .select("*")
-    .eq("emprestimo_id", emprestimo_id)
-    .order("numero");
+export async function listarParcelas(req: Request, res: Response) {
+  const { data, error } = await supabase.from("parcelas").select("*");
 
   if (error) return res.status(400).json(error);
-
   res.json(data);
 }
 
-export async function registrarPagamento(req: any, res: Response) {
-  const parcela_id = req.params.parcelas_id;
-  const { valor_pago } = req.body;
+export async function atualizarParcela(req: Request, res: Response) {
+  const id = req.params.id;
+  const body = req.body;
 
   const { data, error } = await supabase
     .from("parcelas")
-    .update({
-      pago: true,
-      data_pagamento: new Date(),
-      valor_pago
-    })
-    .eq("id", parcela_id)
-    .select();
+    .update(body)
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error) return res.status(400).json(error);
-
-  res.json({ message: "Pagamento registrado", parcela: data[0] });
+  res.json(data);
 }

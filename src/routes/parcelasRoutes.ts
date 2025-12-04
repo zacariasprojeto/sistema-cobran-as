@@ -1,11 +1,11 @@
 import { Router } from "express";
+import * as controller from "../controllers/parcelasController";
 import { auth } from "../middlewares/auth";
 import { permitir } from "../middlewares/permissoes";
-import * as controller from "../controllers/parcelasController";
 
 const router = Router();
 
-router.get("/:emprestimo_id", auth, permitir("ver_parcelas"), controller.listarParcelas);
-router.post("/:parcelas_id/pagar", auth, permitir("registrar_pagamento"), controller.registrarPagamento);
+router.get("/", auth, permitir("ver_parcelas"), controller.listarParcelas);
+router.put("/:id", auth, permitir("editar_dados"), controller.atualizarParcela);
 
 export default router;
